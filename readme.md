@@ -10,6 +10,8 @@ For each configuration file, the editor parses the file to extract the configura
 
 Users can modify the values of configuration options directly within the application's interface. Once modifications are made, they can save the changes back to the original configuration file. The editor ensures that the modified configuration file retains its original formatting and comments while updating the values of the specified configuration options.
 
+![Demo Gif](https://github.com/SarahRoseLives/PyOpenTTDConfig/blob/master/demo.gif?raw=true)
+
 ## Features (Work in Progress)
 
 - Select folder containing OpenTTD server configuration files.
