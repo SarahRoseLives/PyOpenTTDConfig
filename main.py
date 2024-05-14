@@ -1,92 +1,125 @@
+import sys
 import os
-import tkinter as tk
-from tkinter import ttk
-from tkinter import filedialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QFileDialog, QTabWidget, QWidget, QVBoxLayout, QLabel, \
+    QPushButton, QLineEdit, QHBoxLayout, QScrollArea
+from configparser import ConfigParser
 
 
-class ConfigEditor:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("Config Editor")
-        self.tabs = ttk.Notebook(master)
-        self.tabs.pack(expand=1, fill='both')
+class MyApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-        self.load_button = ttk.Button(master, text="Select Config Folder", command=self.load_config_folder)
-        self.load_button.pack(pady=10)
+        self.initUI()
+        self.tabs_info = {}  # Dictionary to store file path and section name associated with each tab
 
-    def load_config_folder(self):
-        folder_path = filedialog.askdirectory(title="Select Config Folder")
-        if not folder_path:
-            return
-
-        cfg_files = [f for f in os.listdir(folder_path) if f.endswith('.cfg')]
-        for cfg_file in cfg_files:
-            tab = ttk.Frame(self.tabs)
-            self.tabs.add(tab, text=cfg_file)
-
-            file_path = os.path.join(folder_path, cfg_file)
-            with open(file_path, 'r') as file:
-                config_data = file.readlines()
-
-            options = {}
-            entry_widgets = {}  # Dictionary to store entry widgets with their corresponding keys
-            current_section = None
-            for line in config_data:
-                line = line.strip()
-                if line.startswith("[") and line.endswith("]"):
-                    current_section = line[1:-1]
-                elif '=' in line and current_section:
-                    key, value = line.split("=", 1)
-                    options[key.strip()] = value.strip()
-
-            row_counter = 0
-            col_counter = 0
-            for option, value in options.items():
-                if row_counter >= 35:
-                    row_counter = 0
-                    col_counter += 1
-
-                label = ttk.Label(tab, text=option)
-                label.grid(row=row_counter, column=col_counter * 2, sticky="w", padx=5, pady=2)
-                entry = ttk.Entry(tab, width=20)
-                entry.insert(0, value)
-                entry.grid(row=row_counter, column=col_counter * 2 + 1, padx=5, pady=2)
-                # Store entry widget with its corresponding key
-                entry_widgets[option] = entry
-                row_counter += 1
-
-            save_button = ttk.Button(tab, text="Save",
-                                     command=lambda file_path=file_path, entry_widgets=entry_widgets: self.save_config(
-                                         file_path, entry_widgets))
-            save_button.grid(row=row_counter, columnspan=col_counter * 2 + 2, pady=10)
-
-    def save_config(self, file_path, entry_widgets):
-        new_options = {}
-        for key, entry in entry_widgets.items():
-            value = entry.get()
-            new_options[key] = value
-
-        with open(file_path, 'r') as file:
-            config_data = file.readlines()
-
-        with open(file_path, 'w') as file:
-            for line in config_data:
-                if "=" in line:
-                    key, _ = line.split("=", 1)
-                    key = key.strip()
-                    if key in new_options:
-                        file.write(f"{key} = {new_options[key]}\n")
-                    else:
-                        file.write(line)
-                else:
-                    file.write(line)
+    def initUI(self):
+        self.setWindowTitle('OpenTTDConfig')
+        self.setGeometry(100, 100, 800, 500)
 
 
-def main():
-    root = tk.Tk()
-    app = ConfigEditor(root)
-    root.mainloop()
+        open_action = QAction('Open Config Directory', self)
+        open_action.setShortcut('Ctrl+O')
+        open_action.triggered.connect(self.openFile)
 
 
-if __name__ == "__main__":
-    main()
+        exit_action = QAction('Exit', self)
+        exit_action.setShortcut('Ctrl+Q')
+        exit_action.triggered.connect(self.close)
+
+        # Create file menu and add actions
+        file_menu = self.menuBar().addMenu('File')
+        file_menu.addAction(open_action)
+        file_menu.addAction(exit_action)
+
+        self.main_tabs = QTabWidget(self)
+        self.setCentralWidget(self.main_tabs)
+
+    def openFile(self):
+        options = QFileDialog.Options()
+        folder_path = QFileDialog.getExistingDirectory(self, "Select Folder", options=options)
+        if folder_path:
+            cfg_files = [file for file in os.listdir(folder_path) if file.endswith('.cfg')]
+            for cfg_file in cfg_files:
+                cfg_tabs = QTabWidget()
+                config = ConfigParser(strict=False)
+                try:
+                    file_path = os.path.join(folder_path, cfg_file)
+                    print("Reading file:", file_path)
+                    config.read(file_path)
+                    print("Sections in {}: {}".format(cfg_file, config.sections()))
+
+                    for section in config.sections():
+                        tab = QWidget()
+                        layout = QVBoxLayout()
+                        seen_options = set()  # To track duplicate options within a section
+                        for key, value in config.items(section):
+                            # Skip duplicate options within a section
+                            if key.lower() in seen_options:
+                                continue
+                            seen_options.add(key.lower())
+                            field_layout = QHBoxLayout()
+                            label = QLabel(key)
+                            field_layout.addWidget(label)
+                            line_edit = QLineEdit(value)
+                            field_layout.addWidget(line_edit)
+                            layout.addLayout(field_layout)
+                        save_button = QPushButton("Save")
+                        save_button.clicked.connect(
+                            lambda _, s=section, f=cfg_file, t=tab, p=file_path: self.saveConfig(f, s, t, p))
+                        layout.addWidget(save_button)
+                        tab.setLayout(layout)
+
+                        # Add scroll area to the tab
+                        scroll_area = QScrollArea()
+                        scroll_area.setWidgetResizable(True)
+                        scroll_area.setWidget(tab)
+
+                        cfg_tabs.addTab(scroll_area, section)
+
+                        # Store file path and section name directly with the scroll area widget
+                        self.tabs_info[scroll_area] = {'file': file_path, 'section': section}
+                        print("Tab added:", cfg_file, section)
+
+                    self.main_tabs.addTab(cfg_tabs, cfg_file)
+                    print("Added tabs for:", cfg_file)
+                except Exception as e:
+                    print("Error while processing {}: {}".format(cfg_file, str(e)))
+
+    def saveConfig(self, cfg_file, section, tab, file_path):
+        config = ConfigParser()
+        try:
+            if file_path and section:
+                config.read(file_path)
+
+                # Print out sections to debug
+                print("Sections in {}: {}".format(cfg_file, config.sections()))
+
+                layout = tab.layout()
+                for i in range(layout.count() - 1):  # Exclude save button
+                    field_layout = layout.itemAt(i).layout()
+                    label = field_layout.itemAt(0).widget()
+                    line_edit = field_layout.itemAt(1).widget()
+                    # Check if the value has been modified
+                    original_value = config.get(section, label.text(), fallback=None)
+                    new_value = line_edit.text()
+                    if original_value != new_value:
+                        config.set(section, label.text(), line_edit.text())
+
+                # Print out sections again just before saving
+                print("Sections before saving in {}: {}".format(cfg_file, config.sections()))
+
+                with open(file_path, 'w') as f:
+                    config.write(f)
+                print("Saved changes to", file_path)
+            else:
+                print("Error: No file path or section name found for the current tab")
+        except Exception as e:
+            print("Error while saving {}: {}".format(cfg_file, str(e)))
+
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = MyApp()
+    window.show()
+    sys.exit(app.exec_())

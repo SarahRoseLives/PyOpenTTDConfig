@@ -4,11 +4,12 @@ This software is a work-in-progress tool designed for OpenTTD server administrat
 
 ## How It Works
 
-The OpenTTD Server Config File Editor is built using Python and utilizes the Tkinter library for creating the graphical user interface. It allows users to select a folder containing OpenTTD server configuration files (`*.cfg`), and then displays each configuration file in a separate tab within the application.
+The OpenTTD Server Config File Editor is built using Python an PyQt5.
+We open the folder with your config files and create tabs for each file found (including custom cfg files) and from there
+we create sub-tabs for each section of a given config file.
 
-For each configuration file, the editor parses the file to extract the configuration options and their corresponding values. It then presents these options and values in a structured format within the GUI, allowing users to easily view and modify them.
-
-Users can modify the values of configuration options directly within the application's interface. Once modifications are made, they can save the changes back to the original configuration file. The editor ensures that the modified configuration file retains its original formatting and comments while updating the values of the specified configuration options.
+It gives you a nice and easy gui to quickly navigate to and change sections. I'd like to eventually set this up so that the max values, bool and such have drop down boxes and value enforcement.
+I'd also like to add a section to handle server-specific stuff from multiple files.
 
 ![Demo Gif](https://github.com/SarahRoseLives/PyOpenTTDConfig/blob/master/demo.gif?raw=true)
 
